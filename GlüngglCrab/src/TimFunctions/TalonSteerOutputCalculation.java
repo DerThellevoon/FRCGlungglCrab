@@ -7,7 +7,6 @@ public class TalonSteerOutputCalculation {
 	public double talonOutput = 0;
 	private double rampValue = 0;
 
-	
 	public TalonSteerOutputCalculation() {
 		
 	}

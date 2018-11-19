@@ -11,8 +11,10 @@ import com.ctre.phoenix.motorcontrol.FeedbackDevice;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 
 import TimFunctions.DesiredWheelAngleCalculation;
+import TimFunctions.ActiveWheelAngleCalculation;
 import TimFunctions.Deadzone;
 import TimFunctions.JoystickAngleCalculation;
+import TimFunctions.TalonSteerOutputCalculation;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
@@ -27,9 +29,8 @@ public class Robot extends TimedRobot {
 	
 	public static Deadzone deadzone = new Deadzone();
 	public DesiredWheelAngleCalculation angleCalculationFrontLeft = new DesiredWheelAngleCalculation();
-	public DesiredWheelAngleCalculation angleCalculationFrontRight = new DesiredWheelAngleCalculation();
-	public DesiredWheelAngleCalculation angleCalculationBackLeft = new DesiredWheelAngleCalculation();
-	public DesiredWheelAngleCalculation angleCalculationBackRight = new DesiredWheelAngleCalculation();
+	public ActiveWheelAngleCalculation activeAngleCalculationFrontLeft = new ActiveWheelAngleCalculation();
+	public TalonSteerOutputCalculation talonSteerOutputCalculationFrontLeft = new TalonSteerOutputCalculation();
 	
 	public static final WPI_TalonSRX talonDriveFrontLeft = new WPI_TalonSRX(4);
 	public static final WPI_TalonSRX talonDriveFrontRight = new WPI_TalonSRX(1);
@@ -47,54 +48,21 @@ public class Robot extends TimedRobot {
 	public static int driveRotationTickCount = 11564;
 	public static int steerRotationTickCount = 255200;
 	
-	public static double joystickYAxis = 0;
-	public static double joystickXAxis = 0;
-	public static double joystickZAxis = 0;
+	public static double joystickYAxis, joystickXAxis, joystickZAxis = 0;
 	public static boolean buttonSetZeroState = false;
-	public static int encoderDriveFrontLeftCount = 0;
-	public static int encoderDriveFrontRightCount = 0;
-	public static int encoderDriveBackLeftCount = 0;
-	public static int encoderDriveBackRightCount = 0;
-	public static int encoderSteerFrontLeftCount = 0;
-	public static int encoderSteerFrontRightCount = 0;
-	public static int encoderSteerBackLeftCount = 0;
-	public static int encoderSteerBackRightCount = 0;
+	public static int encoderDriveFrontLeftCount, encoderSteerFrontLeftCount = 0;
 	public static double joystickAngleDegrees = 0;
-	public static double robotAngleDegrees = 0;
 	public static boolean wheelDirectionFrontLeft = false;
 	public static boolean rotationDirectionFrontLeft = false;
 	public static double rotationDistanceDergreesFrontLeft = 0;
-	public static double rotationDistanceTicksFrontLeft = 0;
 	public static double wheelAngleFrontLeft = 0;
-	public static boolean wheelDirectionFrontRight = false;
-	public static boolean rotationDirectionFrontRight = false;
-	public static double rotationDistanceDergreesFrontRight = 0;
-	public static double rotationDistanceTicksFrontRight = 0;
-	public static double wheelAngleFrontRight = 0;
-	public static boolean wheelDirectionBackLeft = false;
-	public static boolean rotationDirectionBackLeft = false;
-	public static double rotationDistanceDergreesBackLeft = 0;
-	public static double rotationDistanceTicksBackLeft = 0;
-	public static double wheelAngleBackLeft = 0;
-	public static boolean wheelDirectionBackRight = false;
-	public static boolean rotationDirectionBackRight = false;
-	public static double rotationDistanceDergreesBackRight = 0;
-	public static double rotationDistanceTicksBackRight = 0;
-	public static double wheelAngleBackRight = 0;
-	
 	
 	@Override
 	public void teleopInit() {
 		
 		talonDriveFrontLeft.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		talonDriveFrontRight.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		talonDriveBackLeft.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		talonDriveBackRight.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
 		talonSteerFrontLeft.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		talonSteerFrontRight.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		talonSteerBackLeft.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		talonSteerBackRight.configSelectedFeedbackSensor(FeedbackDevice.QuadEncoder, 0, 0);
-		
+
 	}
 	
 	@Override
@@ -104,23 +72,25 @@ public class Robot extends TimedRobot {
 		joystickXAxis = deadzone.getAxis(joystick1.getX(), deadzoneValue);
 		joystickYAxis = deadzone.getAxis(-joystick1.getY(), deadzoneValue);
 		joystickZAxis = deadzone.getAxis(joystick1.getZ(), deadzoneValue);
+		
 		buttonSetZeroState = buttonSetZero.get();
-		encoderDriveFrontRightCount = -talonDriveFrontRight.getSelectedSensorPosition();
+		
 		encoderDriveFrontLeftCount = -talonDriveFrontLeft.getSelectedSensorPosition();
-		encoderDriveBackRightCount = -talonDriveBackRight.getSelectedSensorPosition();
-		encoderDriveBackLeftCount = -talonDriveBackLeft.getSelectedSensorPosition();
-		encoderSteerFrontRightCount = -talonSteerFrontRight.getSelectedSensorPosition();
 		encoderSteerFrontLeftCount = -talonSteerFrontLeft.getSelectedSensorPosition();
-		encoderSteerBackRightCount = -talonSteerBackRight.getSelectedSensorPosition();
-		encoderSteerBackLeftCount = -talonSteerBackLeft.getSelectedSensorPosition();
+		
 		joystickAngleDegrees = JoystickAngleCalculation.joystickAngleDegrees(joystickXAxis, joystickYAxis);
 		
-		wheelAngleFrontLeft = joystickZAxis * 180;
-		angleCalculationFrontLeft.calculateWheelAngleDegrees(0, joystickAngleDegrees);
+		wheelAngleFrontLeft = activeAngleCalculationFrontLeft.getWheelAngleDegrees(encoderSteerFrontLeftCount, steerRotationTickCount);
 		
-		wheelDirectionFrontLeft = angleCalculationFrontLeft.getWheelDirection();
-		rotationDirectionFrontLeft = angleCalculationFrontLeft.getRotationDirection();
-		rotationDistanceDergreesFrontLeft = angleCalculationFrontLeft.getRotationDistance();
+//		angleCalculationFrontLeft.calculateWheelAngleDegrees(0, joystickAngleDegrees);
+		
+//		wheelDirectionFrontLeft = angleCalculationFrontLeft.getWheelDirection();
+//		rotationDirectionFrontLeft = angleCalculationFrontLeft.getRotationDirection();
+//		rotationDistanceDergreesFrontLeft = angleCalculationFrontLeft.getRotationDistance();
+	
+//		talonSteerFrontLeft.set(talonSteerOutputCalculationFrontLeft.getTalonSteerOutput(encoderSteerFrontLeftCount, steerRotationTickCount, rotationDistanceDergreesFrontLeft, rotationDirectionFrontLeft));
+		
+		talonSteerFrontLeft.set(joystickZAxis);
 		
 		if(buttonSetZeroState == true) {
 			talonDriveFrontLeft.setSelectedSensorPosition(0);
@@ -137,29 +107,34 @@ public class Robot extends TimedRobot {
 		
 //		SmartDashboard.putNumber("Joystick X Axis: ", joystickXAxis);
 //		SmartDashboard.putNumber("Joystick Y Axis: ", joystickYAxis);
-//		SmartDashboard.putNumber("Joystick Z Axis: ", joystickZAxis);
-		SmartDashboard.putNumber("Joystick Angle: ", joystickAngleDegrees);
+		SmartDashboard.putNumber("Joystick Z Axis: ", joystickZAxis);
+//		SmartDashboard.putNumber("Joystick Angle: ", joystickAngleDegrees);
+		SmartDashboard.putNumber("steerRotationTickCount: ", steerRotationTickCount);
 		SmartDashboard.putNumber("Wheelangle FrontLeft: ", wheelAngleFrontLeft);
-//		SmartDashboard.putBoolean("Joystick Button 1 State: ", buttonSetZeroState);
+		SmartDashboard.putNumber("wheelRotationsDecimal: ", ActiveWheelAngleCalculation.wheelRotationsDecimal);
+		SmartDashboard.putNumber("wheelRotations: ", ActiveWheelAngleCalculation.wheelRotations);
+		SmartDashboard.putBoolean("wheelAngleOperationFlip: ", ActiveWheelAngleCalculation.wheelAngleOperationFlip);
+
+		//		SmartDashboard.putBoolean("Joystick Button 1 State: ", buttonSetZeroState);
 //		SmartDashboard.putNumber("encoderDriveFrontLeftCount: ", encoderDriveFrontLeftCount);
 //		SmartDashboard.putNumber("encoderDriveFrontRightCount: ", encoderDriveFrontRightCount);
 //		SmartDashboard.putNumber("encoderDriveBackLeftCount: ", encoderDriveBackLeftCount);
 //		SmartDashboard.putNumber("encoderDriveBackRightCount: ", encoderDriveBackRightCount);
-//		SmartDashboard.putNumber("encoderSteerFrontLeftCount: ", encoderSteerFrontLeftCount);
+		SmartDashboard.putNumber("encoderSteerFrontLeftCount: ", encoderSteerFrontLeftCount);
 //		SmartDashboard.putNumber("encoderSteerFrontRightCount: ", encoderSteerFrontRightCount);
 //		SmartDashboard.putNumber("encoderSteerBackLeftCount: ", encoderSteerBackLeftCount);
 //		SmartDashboard.putNumber("encoderSteerBackRightCount: ", encoderSteerBackRightCount);
-		SmartDashboard.putNumber("wheelAngleForward: ", DesiredWheelAngleCalculation.wheelAngleForward);
-		SmartDashboard.putNumber("wheelAngleBackward: ", DesiredWheelAngleCalculation.wheelAngleBackward);
-		SmartDashboard.putNumber("desiredAngleForward: ", DesiredWheelAngleCalculation.desiredAngleForward);
-		SmartDashboard.putNumber("desiredAngleBackward: ", DesiredWheelAngleCalculation.desiredAngleBackward);
-		SmartDashboard.putNumber("distanceClockwiseForward: ", DesiredWheelAngleCalculation.distanceClockwiseForward);
-		SmartDashboard.putNumber("distanceClockwiseBackward: ", DesiredWheelAngleCalculation.distanceClockwiseBackward);
-		SmartDashboard.putNumber("distanceCounterClockwiseForward: ", DesiredWheelAngleCalculation.distanceCounterClockwiseForward);
-		SmartDashboard.putNumber("distanceCounterClockwiseBackward: ", DesiredWheelAngleCalculation.distanceCounterClockwiseBackward);
-		SmartDashboard.putBoolean("Distance Direction: ", DesiredWheelAngleCalculation.distanceDirection);
-		SmartDashboard.putBoolean("Wheel Direction: ", wheelDirectionFrontLeft);
-		SmartDashboard.putBoolean("Rotation Direction: ", rotationDirectionFrontLeft);
-		SmartDashboard.putNumber("Rotation Distance: ", rotationDistanceDergreesFrontLeft);
+//		SmartDashboard.putNumber("wheelAngleForward: ", DesiredWheelAngleCalculation.wheelAngleForward);
+//		SmartDashboard.putNumber("wheelAngleBackward: ", DesiredWheelAngleCalculation.wheelAngleBackward);
+//		SmartDashboard.putNumber("desiredAngleForward: ", DesiredWheelAngleCalculation.desiredAngleForward);
+//		SmartDashboard.putNumber("desiredAngleBackward: ", DesiredWheelAngleCalculation.desiredAngleBackward);
+//		SmartDashboard.putNumber("distanceClockwiseForward: ", DesiredWheelAngleCalculation.distanceClockwiseForward);
+//		SmartDashboard.putNumber("distanceClockwiseBackward: ", DesiredWheelAngleCalculation.distanceClockwiseBackward);
+//		SmartDashboard.putNumber("distanceCounterClockwiseForward: ", DesiredWheelAngleCalculation.distanceCounterClockwiseForward);
+//		SmartDashboard.putNumber("distanceCounterClockwiseBackward: ", DesiredWheelAngleCalculation.distanceCounterClockwiseBackward);
+//		SmartDashboard.putBoolean("Distance Direction: ", DesiredWheelAngleCalculation.distanceDirection);
+//		SmartDashboard.putBoolean("Wheel Direction: ", wheelDirectionFrontLeft);
+//		SmartDashboard.putBoolean("Rotation Direction: ", rotationDirectionFrontLeft);
+//		SmartDashboard.putNumber("Rotation Distance: ", rotationDistanceDergreesFrontLeft);
 	}
 }
